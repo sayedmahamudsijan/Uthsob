@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shohoz Bazar — Shop Easy, Live Easy</title>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Netlify Identity (for Admin + optional user login) -->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  </style>
+</head>
+
+<body class="bg-slate-50">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useState } = React;
+
+    // ===== CONFIG =====
+    const BRAND = {
+      name: "Shohoz Bazar",
+      tagline_bn: "সহজে কিনুন, সহজে থাকুন",
+      tagline_en: "Shop Easy, Live Easy",
+      phone: "+880 1703-842165",
+      email: "shohoz.bazzar.bd@gmail.com",
+      address: "Dhaka, Bangladesh",
+      messengerLink: "https://m.me/61582055433127",
+      pageId: "61582055433127",
+      freeShipThreshold: 500,
+      deliveryFee: 60,
+      logoText: "SB"
+    };
+
+    const formatBDT = (n) => "৳" + Number(n || 0).toLocaleString("en-US");
+    const discountedPrice = (price, pct) => {
+      const p = Number(price || 0);
+      const d = Number(pct || 0);
+      const out = Math.round(p - (p * d) / 100);
+      return Math.max(0, out);
+    };
+
+    const avgRating = (reviews=[]) => {
+      if (!reviews?.length) return 0;
+      const sum = reviews.reduce((s,r) => s + Number(r.stars || 0), 0);
+      return Math.round((sum / reviews.length) * 10) / 10; // float 1 decimal
+    };
+
+    const Stars = ({ value }) => {
+      const v = Math.max(0, Math.min(5, Number(value || 0)));
+      const full = Math.floor(v);
+      const half = (v - full) >= 0.5 ? 1 : 0;
+      const empty = 5 - full - half;
+      return (
+        <div className="inline-flex items-center gap-1">
+          {"★".repeat(full)}
+          {half ? "☆" : ""}
+          {"✩".repeat(empty)}
+        </div>
+      );
+    };
+
+    const safeParse = (s, fallback) => { try { return JSON.parse(s); } catch { return fallback; } };
+
+    function App(){
+      const [lang, setLang] = useState("bn"); // bn/en
+      const t = useMemo(() => ({
+        bn: {
+          search: "পণ্য/ক্যাটাগরি খুঁজুন…",
+          shop: "শপ",
+          home: "হোম",
+          cart: "কার্ট",
+          wishlist: "ইচ্ছেতালিকা",
+          login: "লগইন",
+          admin: "অ্যাডমিন",
+          categories: "ক্যাটাগরি",
+          viewAll: "সব দেখুন",
+          addToCart: "কার্টে",
+          buyNow: "এখনই কিনুন",
+          details: "ডিটেইলস",
+          reviews: "রিভিউ",
+          out: "স্টক নেই",
+          inStock: "স্টকে আছে",
+          qty: "পরিমাণ",
+          subtotal: "সাবটোটাল",
+          delivery: "ডেলিভারি",
+          total: "মোট",
+          checkout: "Messenger দিয়ে অর্ডার",
+          copied: "কপি হয়েছে + Messenger খুলেছে",
+          continue: "শপিং চালিয়ে যান",
+          empty: "কার্ট খালি",
+          back: "ফিরে যান",
+          comment: "কমেন্ট",
+          submit: "সাবমিট",
+          loginHint: "লগইন ছাড়া ব্রাউজ করতে পারবেন।",
+        },
+        en: {
+          search: "Search products/categories…",
+          shop: "Shop",
+          home: "Home",
+          cart: "Cart",
+          wishlist: "Wishlist",
+          login: "Login",
+          admin: "Admin",
+          categories: "Categories",
+          viewAll: "View all",
+          addToCart: "Add",
+          buyNow: "Buy",
+          details: "Details",
+          reviews: "Reviews",
+          out: "Out of stock",
+          inStock: "In stock",
+          qty: "Qty",
+          subtotal: "Subtotal",
+          delivery: "Delivery",
+          total: "Total",
+          checkout: "Checkout via Messenger",
+          copied: "Copied + opened Messenger",
+          continue: "Continue shopping",
+          empty: "Cart is empty",
+          back: "Back",
+          comment: "Comment",
+          submit: "Submit",
+          loginHint: "Browsing works without login.",
+        }
+      })[lang], [lang]);
+
+      // Data
+      const [data, setData] = useState({ categories: [], products: [] });
+      const [loading, setLoading] = useState(true);
+      const [err, setErr] = useState("");
+
+      // Pages
+      const [page, setPage] = useState({ name: "home" }); // home | category | product | cart | wishlist
+      const [query, setQuery] = useState("");
+
+      // Cart/Wishlist persisted locally for each visitor
+      const [cart, setCart] = useState(() => safeParse(localStorage.getItem("sb_cart"), []));
+      const [wishlist, setWishlist] = useState(() => safeParse(localStorage.getItem("sb_wishlist"), []));
+
+      useEffect(() => localStorage.setItem("sb_cart", JSON.stringify(cart)), [cart]);
+      useEffect(() => localStorage.setItem("sb_wishlist", JSON.stringify(wishlist)), [wishlist]);
+
+      // Identity
+      const [user, setUser] = useState(null);
+
+      useEffect(() => {
+        // Load products.json
+        (async () => {
+          try {
+            setLoading(true); setErr("");
+            const res = await fetch("/data/products.json", { cache: "no-store" });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const json = await res.json();
+            setData({
+              categories: (json.categories || []).slice().sort((a,b) => (a.order||999) - (b.order||999)),
+              products: (json.products || [])
+            });
+          } catch(e){
+            setErr("Failed to load /data/products.json");
+          } finally {
+            setLoading(false);
+          }
+        })();
+
+        // Netlify Identity hooks
+        if (window.netlifyIdentity) {
+          window.netlifyIdentity.on("init", u => setUser(u || null));
+          window.netlifyIdentity.on("login", u => setUser(u || null));
+          window.netlifyIdentity.on("logout", () => setUser(null));
+          window.netlifyIdentity.init();
+        }
+      }, []);
+
+      const isAdmin = useMemo(() => {
+        // If you want roles: set app_metadata.roles includes "admin"
+        const roles = user?.app_metadata?.roles || [];
+        return Array.isArray(roles) && roles.includes("admin");
+      }, [user]);
+
+      const productsByCategory = useMemo(() => {
+        const map = new Map();
+        for (const c of data.categories) map.set(c.id, []);
+        for (const p of data.products) {
+          if (!map.has(p.category)) map.set(p.category, []);
+          map.get(p.category).push(p);
+        }
+        return map;
+      }, [data]);
+
+      const cartCount = useMemo(() => cart.reduce((s,i)=> s + Number(i.qty||0), 0), [cart]);
+
+      const cartSubtotal = useMemo(() => cart.reduce((s,i)=>{
+        const unit = discountedPrice(i.price, i.discount_percent);
+        return s + unit * Number(i.qty||0);
+      },0), [cart]);
+
+      const deliveryFee = useMemo(() => {
+        if (!cartSubtotal) return 0;
+        return cartSubtotal >= BRAND.freeShipThreshold ? 0 : BRAND.deliveryFee;
+      }, [cartSubtotal]);
+
+      const cartTotal = useMemo(() => cartSubtotal + deliveryFee, [cartSubtotal, deliveryFee]);
+
+      const addToCart = (p, qty=1) => {
+        const stock = Number(p.stock ?? 0);
+        if (stock <= 0) return;
+        setCart(prev => {
+          const ex = prev.find(x => x.id === p.id);
+          const add = Math.max(1, Number(qty||1));
+          if (ex) {
+            const nextQty = Math.min(Number(ex.qty||0) + add, stock);
+            return prev.map(x => x.id === p.id ? { ...x, qty: nextQty } : x);
+          }
+          return [...prev, { ...p, qty: Math.min(add, stock) }];
+        });
+      };
+
+      const setQty = (id, qty) => {
+        setCart(prev => prev
+          .map(x => {
+            if (x.id !== id) return x;
+            const stock = Number(x.stock ?? 0);
+            const q = Math.max(0, Math.min(stock || 999999, Number(qty||0)));
+            return { ...x, qty: q };
+          })
+          .filter(x => Number(x.qty||0) > 0)
+        );
+      };
+
+      const toggleWish = (p) => {
+        setWishlist(prev => prev.some(x => x.id === p.id)
+          ? prev.filter(x => x.id !== p.id)
+          : [...prev, p]
+        );
+      };
+
+      const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return data.products;
+        return data.products.filter(p => {
+          const s = ((p.name_en||"") + " " + (p.name_bn||"")).toLowerCase();
+          return s.includes(q);
+        });
+      }, [data, query]);
+
+      const copyText = async (text) => {
+        try { await navigator.clipboard.writeText(text); return true; }
+        catch {
+          const ta = document.createElement("textarea");
+          ta.value = text; document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); } catch {}
+          document.body.removeChild(ta);
+          return true;
+        }
+      };
+
+      const checkoutMessenger = async () => {
+        if (!cart.length) return;
+        const lines = [];
+        lines.push("Shohoz Bazar Order");
+        lines.push("m.me/" + BRAND.pageId);
+        lines.push("");
+        lines.push("Items:");
+        for (const it of cart){
+          const unit = discountedPrice(it.price, it.discount_percent);
+          lines.push(`- ${it.name_en||""} / ${it.name_bn||""} (ID:${it.id}) x${it.qty} = ${unit * it.qty}`);
+        }
+        lines.push("");
+        lines.push("Subtotal: " + cartSubtotal);
+        lines.push("Delivery: " + deliveryFee);
+        lines.push("Total: " + cartTotal);
+        lines.push("");
+        lines.push("Name:");
+        lines.push("Phone:");
+        lines.push("Address:");
+        lines.push("Payment: COD / bKash / Nagad");
+        const msg = lines.join("\\n");
+
+        await copyText(msg);
+        window.open(BRAND.messengerLink, "_blank");
+        alert(t.copied);
+      };
+
+      const Header = () => (
+        <header className="sticky top-0 z-50 bg-white/85 backdrop-blur border-b border-slate-200">
+          <div className="bg-emerald-700 text-white text-sm py-2 px-4 text-center">
+            bKash/Nagad/COD • Free delivery over {formatBDT(BRAND.freeShipThreshold)} • {t.loginHint}
+          </div>
+
+          <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
+            <button
+              className="flex items-center gap-3"
+              onClick={()=> setPage({name:"home"})}
+            >
+              <div className="w-11 h-11 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-black">
+                {BRAND.logoText}
+              </div>
+              <div className="text-left">
+                <div className="font-black text-slate-900 leading-tight">{BRAND.name}</div>
+                <div className="text-xs text-slate-500 hidden sm:block">
+                  {lang === "bn" ? BRAND.tagline_bn : BRAND.tagline_en}
+                </div>
+              </div>
+            </button>
+
+            <div className="flex-1 hidden md:block">
+              <div className="relative">
+                <input
+                  value={query}
+                  onChange={(e)=> setQuery(e.target.value)}
+                  placeholder={t.search}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 pr-12 focus:outline-none focus:border-emerald-500"
+                />
+                <span className="absolute right-4 top-3.5 text-slate-400">🔎</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                className="px-3 py-2 rounded-xl border border-slate-200 hover:border-emerald-400 font-black"
+                onClick={() => setLang(l => l === "bn" ? "en" : "bn")}
+                title="Language"
+              >
+                {lang === "bn" ? "EN" : "BN"}
+              </button>
+
+              <button
+                className="relative px-3 py-2 rounded-xl hover:bg-slate-100"
+                onClick={() => setPage({name:"wishlist"})}
+                title={t.wishlist}
+              >
+                ❤️
+                {wishlist.length>0 && (
+                  <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {wishlist.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                className="relative px-3 py-2 rounded-xl hover:bg-slate-100"
+                onClick={() => setPage({name:"cart"})}
+                title={t.cart}
+              >
+                🛒
+                {cartCount>0 && (
+                  <span className="absolute -top-1 -right-1 bg-emerald-700 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                className="px-3 py-2 rounded-xl bg-slate-900 text-white font-black hover:bg-black"
+                onClick={() => window.netlifyIdentity ? window.netlifyIdentity.open() : alert("Identity not loaded")}
+                title={t.login}
+              >
+                {user ? "👤" : "🔐"}
+              </button>
+
+              {isAdmin && (
+                <a
+                  href="/admin/"
+                  className="px-3 py-2 rounded-xl border border-emerald-300 text-emerald-800 font-black hover:bg-emerald-50"
+                  title="Admin"
+                >
+                  {t.admin}
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="max-w-6xl mx-auto px-4 pb-4 md:hidden">
+            <div className="relative">
+              <input
+                value={query}
+                onChange={(e)=> setQuery(e.target.value)}
+                placeholder={t.search}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 pr-10 focus:outline-none focus:border-emerald-500"
+              />
+              <span className="absolute right-3 top-2.5 text-slate-400">🔎</span>
+            </div>
+          </div>
+        </header>
+      );
+
+      const ProductCard = ({p}) => {
+        const title = (lang==="bn" ? (p.name_bn||p.name_en) : (p.name_en||p.name_bn)) || "";
+        const unit = discountedPrice(p.price, p.discount_percent);
+        const out = Number(p.stock ?? 0) <= 0;
+        const rating = avgRating(p.reviews || []);
+        const img = (p.images && p.images[0]) ? p.images[0] : null;
+        const wished = wishlist.some(x => x.id === p.id);
+
+        return (
+          <div className={"bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden " + (out ? "opacity-80" : "")}>
+            <button className="relative block w-full aspect-square bg-slate-100" onClick={()=> setPage({name:"product", id:p.id})}>
+              {img ? <img src={img} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-5xl">🛍️</div>}
+              {Number(p.discount_percent||0) > 0 && !out && (
+                <div className="absolute top-3 left-3 bg-rose-600 text-white text-xs font-black px-2 py-1 rounded-xl">
+                  -{p.discount_percent}%
+                </div>
+              )}
+              {out && (
+                <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                  <div className="bg-white px-4 py-2 rounded-2xl font-black">{t.out}</div>
+                </div>
+              )}
+              <button
+                onClick={(e)=>{ e.stopPropagation(); toggleWish(p); }}
+                className="absolute top-3 right-3 bg-white/90 rounded-full px-3 py-2 shadow"
+                title="Wishlist"
+              >
+                {wished ? "❤️" : "🤍"}
+              </button>
+            </button>
+
+            <div className="p-4">
+              <button className="text-left font-black text-slate-900 line-clamp-2 hover:text-emerald-700" onClick={()=> setPage({name:"product", id:p.id})}>
+                {title}
+              </button>
+
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <div className="text-slate-700">
+                  <span className="font-black">{rating || 0}</span>
+                  <span className="ml-2 text-amber-500"><Stars value={rating} /></span>
+                  <span className="ml-2 text-slate-500">({(p.reviews||[]).length} {t.reviews})</span>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-end gap-2">
+                <div className="text-xl font-black text-emerald-700">{formatBDT(unit)}</div>
+                {Number(p.discount_percent||0) > 0 && (
+                  <div className="text-sm text-slate-400 line-through">{formatBDT(p.price)}</div>
+                )}
+              </div>
+
+              <div className="mt-2 text-xs text-slate-600">
+                🚚 {p.delivery_text || "1-2 days"} • {out ? t.out : `${t.inStock}: ${p.stock}`}
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <button
+                  disabled={out}
+                  onClick={()=> addToCart(p, 1)}
+                  className={"rounded-2xl py-2 font-black " + (out ? "bg-slate-200 text-slate-500" : "bg-orange-500 hover:bg-orange-600 text-white")}
+                >
+                  {t.addToCart}
+                </button>
+                <button
+                  disabled={out}
+                  onClick={()=> { addToCart(p, 1); setPage({name:"cart"}); }}
+                  className={"rounded-2xl py-2 font-black " + (out ? "bg-slate-200 text-slate-500" : "bg-emerald-700 hover:bg-emerald-800 text-white")}
+                >
+                  {t.buyNow}
+                </button>
+                <button
+                  onClick={()=> setPage({name:"product", id:p.id})}
+                  className="rounded-2xl py-2 font-black border border-slate-200 hover:border-emerald-400"
+                >
+                  {t.details}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const Home = () => {
+        if (loading) return <div className="max-w-6xl mx-auto px-4 py-10 text-slate-600">Loading…</div>;
+        if (err) return <div className="max-w-6xl mx-auto px-4 py-10 text-rose-600">{err}</div>;
+
+        return (
+          <div>
+            <div className="max-w-6xl mx-auto px-4 py-10">
+              <div className="rounded-[32px] bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-500 text-white p-8 md:p-12 border border-white/20 shadow-sm">
+                <div className="inline-flex items-center gap-2 bg-white/15 border border-white/20 px-4 py-2 rounded-full text-sm font-black">
+                  bKash / Nagad / COD • Messenger Order
+                </div>
+                <h1 className="mt-4 text-3xl md:text-5xl font-black leading-tight">
+                  {lang==="bn" ? "Shohoz Bazar এ স্বাগতম" : "Welcome to Shohoz Bazar"}
+                </h1>
+                <p className="mt-3 text-white/90 text-base md:text-xl">
+                  {lang==="bn" ? "ক্যাটাগরি দেখে সহজে অর্ডার করুন" : "Browse categories and order easily"}
+                </p>
+                <div className="mt-6 flex gap-3 flex-wrap">
+                  <button onClick={()=> setPage({name:"shop"})} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-2xl font-black">
+                    {t.shop}
+                  </button>
+                  <a href={BRAND.messengerLink} target="_blank" className="bg-white/15 hover:bg-white/20 border border-white/30 px-6 py-3 rounded-2xl font-black">
+                    m.me/{BRAND.pageId}
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="max-w-6xl mx-auto px-4 pb-14">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-black text-slate-900">{t.categories}</h2>
+              </div>
+
+              <div className="mt-6 space-y-10">
+                {data.categories.map(cat => {
+                  const list = (productsByCategory.get(cat.id) || []).slice(0, 5);
+                  if (!list.length) return null;
+                  const catName = lang==="bn" ? (cat.name_bn || cat.name_en) : (cat.name_en || cat.name_bn);
+
+                  return (
+                    <section key={cat.id}>
+                      <div className="flex items-end justify-between gap-3">
+                        <button
+                          className="text-xl font-black text-slate-900 hover:text-emerald-700"
+                          onClick={()=> setPage({name:"category", id:cat.id})}
+                        >
+                          {catName}
+                        </button>
+                        <button className="text-emerald-700 font-black hover:underline" onClick={()=> setPage({name:"category", id:cat.id})}>
+                          {t.viewAll} →
+                        </button>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {list.map(p => <ProductCard key={p.id} p={p} />)}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const CategoryPage = ({ catId }) => {
+        const cat = data.categories.find(c => c.id === catId);
+        const catName = cat ? (lang==="bn" ? (cat.name_bn || cat.name_en) : (cat.name_en || cat.name_bn)) : catId;
+        const list = (productsByCategory.get(catId) || []);
+
+        return (
+          <div className="max-w-6xl mx-auto px-4 py-10">
+            <button className="font-black text-emerald-700 hover:underline" onClick={()=> setPage({name:"home"})}>
+              ← {t.back}
+            </button>
+            <h1 className="mt-4 text-3xl font-black text-slate-900">{catName}</h1>
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {list.map(p => <ProductCard key={p.id} p={p} />)}
+            </div>
+          </div>
+        );
+      };
+
+      const ProductPage = ({ id }) => {
+        const p = data.products.find(x => x.id === id);
+        if (!p) return (
+          <div className="max-w-6xl mx-auto px-4 py-10">
+            <button className="font-black text-emerald-700 hover:underline" onClick={()=> setPage({name:"home"})}>← {t.back}</button>
+            <div className="mt-6 text-slate-600">Product not found.</div>
+          </div>
+        );
+
+        const title = (lang==="bn" ? (p.name_bn||p.name_en) : (p.name_en||p.name_bn)) || "";
+        const desc = (lang==="bn" ? (p.description_bn||"") : (p.description_en||"")) || "";
+        const unit = discountedPrice(p.price, p.discount_percent);
+        const rating = avgRating(p.reviews || []);
+        const out = Number(p.stock ?? 0) <= 0;
+
+        const [imgIdx, setImgIdx] = useState(0);
+        const [qty, setQtyLocal] = useState(1);
+        const [commentName, setCommentName] = useState("");
+        const [commentText, setCommentText] = useState("");
+        const [commentStars, setCommentStars] = useState(5);
+
+        const images = Array.isArray(p.images) ? p.images : [];
+        const main = images[imgIdx] || images[0] || null;
+
+        // Reviews are stored locally for visitors (demo). Global reviews would need backend/repo write.
+        const localKey = "sb_reviews_" + p.id;
+        const [localReviews, setLocalReviews] = useState(() => safeParse(localStorage.getItem(localKey), []));
+        useEffect(() => localStorage.setItem(localKey, JSON.stringify(localReviews)), [localReviews]);
+
+        const mergedReviews = [...(p.reviews||[]), ...localReviews];
+        const mergedRating = avgRating(mergedReviews);
+
+        const submitReview = () => {
+          const nm = commentName.trim() || "Anonymous";
+          const tx = commentText.trim();
+          if (!tx) return;
+          const st = Math.max(1, Math.min(5, Number(commentStars||5)));
+          setLocalReviews(prev => [{ name: nm, stars: st, comment: tx, ts: new Date().toISOString() }, ...prev]);
+          setCommentText("");
+        };
+
+        return (
+          <div className="max-w-6xl mx-auto px-4 py-10">
+            <button className="font-black text-emerald-700 hover:underline" onClick={()=> setPage({name:"home"})}>
+              ← {t.back}
+            </button>
+
+            <div className="mt-6 grid md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
+                <div className="aspect-square bg-slate-100">
+                  {main ? <img src={main} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-6xl">🛍️</div>}
+                </div>
+                {images.length > 1 && (
+                  <div className="p-3 grid grid-cols-5 gap-2 bg-white">
+                    {images.slice(0,10).map((src, i)=> (
+                      <button
+                        key={i}
+                        className={"aspect-square rounded-2xl overflow-hidden border " + (i===imgIdx ? "border-emerald-500" : "border-slate-200")}
+                        onClick={()=> setImgIdx(i)}
+                      >
+                        <img src={src} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-3xl border border-slate-200 p-6">
+                <h1 className="text-2xl md:text-3xl font-black text-slate-900">{title}</h1>
+
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="text-slate-900 font-black">{mergedRating || 0}</div>
+                  <div className="text-amber-500"><Stars value={mergedRating} /></div>
+                  <div className="text-slate-500 text-sm">({mergedReviews.length} {t.reviews})</div>
+                </div>
+
+                <div className="mt-4 flex items-end gap-3">
+                  <div className="text-3xl font-black text-emerald-700">{formatBDT(unit)}</div>
+                  {Number(p.discount_percent||0) > 0 && (
+                    <>
+                      <div className="text-slate-400 line-through">{formatBDT(p.price)}</div>
+                      <div className="text-rose-600 font-black">-{p.discount_percent}%</div>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-3 text-sm text-slate-700">
+                  {out ? "⛔ " + t.out : "✅ " + t.inStock + ": " + (p.stock ?? 0)}
+                  <div className="mt-1 text-slate-600">🚚 {p.delivery_text || "1-2 days"}</div>
+                </div>
+
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="font-black text-slate-900">{t.qty}</div>
+                  <div className="inline-flex items-center rounded-2xl border border-slate-200 overflow-hidden">
+                    <button className="px-4 py-2 hover:bg-slate-100 font-black" onClick={()=> setQtyLocal(q => Math.max(1, q-1))}>−</button>
+                    <input
+                      value={qty}
+                      onChange={(e)=> setQtyLocal(Math.max(1, Number(e.target.value||1)))}
+                      className="w-16 text-center py-2 outline-none"
+                      type="number"
+                      min="1"
+                    />
+                    <button className="px-4 py-2 hover:bg-slate-100 font-black" onClick={()=> setQtyLocal(q => q+1)}>+</button>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <button
+                    disabled={out}
+                    className={"rounded-2xl py-3 font-black " + (out ? "bg-slate-200 text-slate-500" : "bg-orange-500 hover:bg-orange-600 text-white")}
+                    onClick={()=> addToCart(p, qty)}
+                  >
+                    {t.addToCart}
+                  </button>
+                  <button
+                    disabled={out}
+                    className={"rounded-2xl py-3 font-black " + (out ? "bg-slate-200 text-slate-500" : "bg-emerald-700 hover:bg-emerald-800 text-white")}
+                    onClick={()=> { addToCart(p, qty); setPage({name:"cart"}); }}
+                  >
+                    {t.buyNow}
+                  </button>
+                </div>
+
+                {desc && (
+                  <div className="mt-6 border-t pt-4">
+                    <div className="font-black text-slate-900 mb-2">Description</div>
+                    <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{desc}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Reviews (local demo) */}
+            <div className="mt-8 bg-white rounded-3xl border border-slate-200 p-6">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <div className="text-xl font-black text-slate-900">{t.reviews}</div>
+                  <div className="text-sm text-slate-600">Overall: <span className="font-black">{mergedRating || 0}</span> / 5</div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid md:grid-cols-3 gap-3">
+                <input className="rounded-2xl border border-slate-200 px-4 py-3" placeholder="Name (optional)" value={commentName} onChange={(e)=>setCommentName(e.target.value)} />
+                <select className="rounded-2xl border border-slate-200 px-4 py-3" value={commentStars} onChange={(e)=>setCommentStars(e.target.value)}>
+                  <option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option>
+                </select>
+                <button className="rounded-2xl bg-slate-900 text-white font-black hover:bg-black" onClick={submitReview}>
+                  {t.submit}
+                </button>
+              </div>
+              <textarea className="mt-3 w-full rounded-2xl border border-slate-200 px-4 py-3" placeholder={t.comment} value={commentText} onChange={(e)=>setCommentText(e.target.value)} />
+
+              <div className="mt-6 space-y-3">
+                {mergedReviews.length === 0 ? (
+                  <div className="text-slate-600">No reviews yet.</div>
+                ) : mergedReviews.map((r, idx)=> (
+                  <div key={idx} className="rounded-2xl border border-slate-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="font-black text-slate-900">{r.name || "Anonymous"}</div>
+                      <div className="text-amber-500"><Stars value={r.stars} /></div>
+                    </div>
+                    <div className="mt-2 text-slate-700 text-sm">{r.comment}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const CartPage = () => (
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <h1 className="text-3xl font-black text-slate-900">{t.cart} ({cartCount})</h1>
+
+          {!cart.length ? (
+            <div className="mt-6 bg-white rounded-3xl border border-slate-200 p-10 text-center">
+              <div className="text-6xl">🛒</div>
+              <div className="mt-3 font-black text-slate-900">{t.empty}</div>
+              <button className="mt-6 px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-black" onClick={()=> setPage({name:"home"})}>
+                {t.continue}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6 grid lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-3">
+                {cart.map(it => {
+                  const unit = discountedPrice(it.price, it.discount_percent);
+                  const img = (it.images && it.images[0]) ? it.images[0] : null;
+                  const title = (lang==="bn" ? (it.name_bn||it.name_en) : (it.name_en||it.name_bn)) || "";
+                  return (
+                    <div key={it.id} className="bg-white rounded-3xl border border-slate-200 p-4 flex gap-4">
+                      <button className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100" onClick={()=> setPage({name:"product", id: it.id})}>
+                        {img ? <img src={img} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl">🛍️</div>}
+                      </button>
+
+                      <div className="flex-1">
+                        <button className="text-left font-black text-slate-900 hover:text-emerald-700" onClick={()=> setPage({name:"product", id: it.id})}>
+                          {title}
+                        </button>
+                        <div className="mt-1 text-sm text-slate-600">
+                          Unit: <span className="font-black text-emerald-700">{formatBDT(unit)}</span>
+                          {Number(it.discount_percent||0) > 0 && (
+                            <span className="ml-2 text-slate-400 line-through">{formatBDT(it.price)}</span>
+                          )}
+                        </div>
+                        <div className="mt-2 inline-flex items-center rounded-2xl border border-slate-200 overflow-hidden">
+                          <button className="px-4 py-2 hover:bg-slate-100 font-black" onClick={()=> setQty(it.id, Number(it.qty||1)-1)}>−</button>
+                          <input
+                            value={it.qty}
+                            onChange={(e)=> setQty(it.id, e.target.value)}
+                            className="w-16 text-center py-2 outline-none"
+                            type="number"
+                            min="1"
+                          />
+                          <button className="px-4 py-2 hover:bg-slate-100 font-black" onClick={()=> setQty(it.id, Number(it.qty||1)+1)}>+</button>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="font-black text-slate-900">{formatBDT(unit * Number(it.qty||0))}</div>
+                        <button className="mt-2 text-rose-600 font-black hover:underline" onClick={()=> setQty(it.id, 0)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 h-fit sticky top-28">
+                <div className="text-xl font-black text-slate-900">Summary</div>
+                <div className="mt-4 space-y-2 text-slate-700">
+                  <div className="flex justify-between"><span className="font-black">{t.subtotal}</span><span className="font-black">{formatBDT(cartSubtotal)}</span></div>
+                  <div className="flex justify-between"><span className="font-black">{t.delivery}</span><span className="font-black">{deliveryFee ? formatBDT(deliveryFee) : "FREE"}</span></div>
+                  <div className="pt-3 border-t flex justify-between text-lg">
+                    <span className="font-black">{t.total}</span>
+                    <span className="font-black text-emerald-700">{formatBDT(cartTotal)}</span>
+                  </div>
+                </div>
+
+                <button onClick={checkoutMessenger} className="mt-5 w-full rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white py-3 font-black">
+                  {t.checkout}
+                </button>
+
+                <a className="block text-center mt-3 text-emerald-700 font-black hover:underline" href={BRAND.messengerLink} target="_blank">
+                  m.me/{BRAND.pageId} →
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+      const WishlistPage = () => (
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <h1 className="text-3xl font-black text-slate-900">{t.wishlist} ({wishlist.length})</h1>
+          {!wishlist.length ? (
+            <div className="mt-6 bg-white rounded-3xl border border-slate-200 p-10 text-center text-slate-600">
+              No items yet.
+            </div>
+          ) : (
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {wishlist.map(p => <ProductCard key={p.id} p={p} />)}
+            </div>
+          )}
+        </div>
+      );
+
+      const Shop = () => (
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <h1 className="text-3xl font-black text-slate-900">{t.shop}</h1>
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {filtered.map(p => <ProductCard key={p.id} p={p} />)}
+          </div>
+        </div>
+      );
+
+      const Footer = () => (
+        <footer className="mt-16 bg-slate-950 text-white">
+          <div className="max-w-6xl mx-auto px-4 py-12 grid md:grid-cols-4 gap-8">
+            <div>
+              <div className="font-black text-lg">{BRAND.name}</div>
+              <div className="mt-2 text-white/70 text-sm">
+                {lang==="bn" ? "বাংলাদেশের জন্য সহজ অনলাইন বাজার।" : "Easy online store for Bangladesh."}
+              </div>
+              <a href={BRAND.messengerLink} target="_blank" className="inline-flex mt-4 rounded-2xl bg-emerald-700 hover:bg-emerald-600 px-4 py-2 font-black">
+                m.me/{BRAND.pageId}
+              </a>
+            </div>
+
+            <div className="text-sm text-white/70">
+              <div className="font-black text-white mb-3">Support</div>
+              <div>📞 {BRAND.phone}</div>
+              <div>📧 {BRAND.email}</div>
+              <div>📍 {BRAND.address}</div>
+            </div>
+
+            <div className="text-sm text-white/70">
+              <div className="font-black text-white mb-3">Policies</div>
+              <div>Return & Refund</div>
+              <div>Privacy Policy</div>
+              <div>Terms</div>
+            </div>
+
+            <div className="text-sm text-white/70">
+              <div className="font-black text-white mb-3">Quick Links</div>
+              <div>About</div>
+              <div>Contact</div>
+              <div>FAQ</div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 py-6 text-center text-white/50 text-sm">
+            © 2026 Shohoz Bazar. All rights reserved.
+          </div>
+        </footer>
+      );
+
+      const MobileNav = () => (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg md:hidden z-50">
+          <div className="grid grid-cols-4 p-2">
+            <button className="py-2 font-black" onClick={()=> setPage({name:"home"})}>🏠</button>
+            <button className="py-2 font-black" onClick={()=> setPage({name:"shop"})}>🛍️</button>
+            <button className="py-2 font-black" onClick={()=> setPage({name:"wishlist"})}>❤️</button>
+            <button className="py-2 font-black relative" onClick={()=> setPage({name:"cart"})}>
+              🛒
+              {cartCount>0 && (
+                <span className="absolute top-1 right-6 bg-emerald-700 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      );
+
+      const Main = () => {
+        if (page.name === "home") return <Home />;
+        if (page.name === "shop") return <Shop />;
+        if (page.name === "category") return <CategoryPage catId={page.id} />;
+        if (page.name === "product") return <ProductPage id={page.id} />;
+        if (page.name === "cart") return <CartPage />;
+        if (page.name === "wishlist") return <WishlistPage />;
+        return <Home />;
+      };
+
+      return (
+        <div className="min-h-screen">
+          <Header />
+          <main className="pb-20 md:pb-0">
+            <Main />
+          </main>
+          <Footer />
+          <MobileNav />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+
+  <script>
+    // Optional: if user logs in, you can show something custom. Admin access is via /admin
+    if (window.netlifyIdentity) {
+      window.netlifyIdentity.on("login", () => window.netlifyIdentity.close());
+    }
+  </script>
+</body>
+</html>
