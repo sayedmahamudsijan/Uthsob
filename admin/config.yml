@@ -1,0 +1,58 @@
+backend:
+  name: git-gateway
+  branch: main
+
+media_folder: "uploads"
+public_folder: "/uploads"
+
+collections:
+  - name: "store"
+    label: "Store Data"
+    files:
+      - name: "products"
+        label: "Products & Categories"
+        file: "data/products.json"
+        format: "json"
+        fields:
+          - label: "Categories"
+            name: "categories"
+            widget: "list"
+            fields:
+              - { label: "ID", name: "id", widget: "string" }
+              - { label: "Name (EN)", name: "name_en", widget: "string" }
+              - { label: "Name (BN)", name: "name_bn", widget: "string" }
+              - { label: "Order", name: "order", widget: "number", value_type: "int", min: 1 }
+
+          - label: "Products"
+            name: "products"
+            widget: "list"
+            fields:
+              - { label: "ID", name: "id", widget: "string" }
+              - { label: "Category", name: "category", widget: "string" }
+
+              - { label: "Name (EN)", name: "name_en", widget: "string" }
+              - { label: "Name (BN)", name: "name_bn", widget: "string" }
+
+              - { label: "Price (BDT)", name: "price", widget: "number", value_type: "int", min: 0 }
+              - { label: "Discount %", name: "discount_percent", widget: "number", value_type: "int", min: 0, max: 95 }
+              - { label: "Stock", name: "stock", widget: "number", value_type: "int", min: 0 }
+
+              - { label: "Delivery Text", name: "delivery_text", widget: "string", required: false }
+
+              - label: "Images"
+                name: "images"
+                widget: "list"
+                field: { label: "Image", name: "image", widget: "image" }
+
+              - { label: "Description (EN)", name: "description_en", widget: "text", required: false }
+              - { label: "Description (BN)", name: "description_bn", widget: "text", required: false }
+
+              - label: "Reviews"
+                name: "reviews"
+                widget: "list"
+                required: false
+                fields:
+                  - { label: "Name", name: "name", widget: "string" }
+                  - { label: "Stars", name: "stars", widget: "number", value_type: "int", min: 1, max: 5 }
+                  - { label: "Comment", name: "comment", widget: "string" }
+                  - { label: "Date", name: "ts", widget: "datetime", required: false }
