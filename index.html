@@ -31,6 +31,10 @@
             background: var(--light);
         }
 
+        a {
+            color: inherit;
+        }
+
         /* Header */
         header {
             background: white;
@@ -180,7 +184,8 @@
             font-weight: 500;
         }
 
-        .category-btn:hover, .category-btn.active {
+        .category-btn:hover,
+        .category-btn.active {
             background: var(--primary);
             color: white;
             border-color: var(--primary);
@@ -192,7 +197,25 @@
             min-height: 60vh;
         }
 
-        .products-grid {
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .section-header h2 {
+            font-size: 24px;
+        }
+
+        .section-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .products-grid,
+        .drop-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 25px;
@@ -313,6 +336,70 @@
             width: 45px;
         }
 
+        .btn-outline {
+            background: transparent;
+            border: 1px dashed var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .section-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            margin-bottom: 35px;
+        }
+
+        .limited-badge {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .drop-card {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 15px;
+            background: var(--light);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .drop-card img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .drop-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+
+        .drop-qty {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .drop-actions {
+            display: flex;
+            gap: 10px;
+        }
+
         /* Product Detail Modal */
         .modal {
             display: none;
@@ -395,7 +482,8 @@
             transition: all 0.3s;
         }
 
-        .thumbnail:hover, .thumbnail.active {
+        .thumbnail:hover,
+        .thumbnail.active {
             border-color: var(--primary);
         }
 
@@ -444,7 +532,9 @@
             border-radius: 10px;
         }
 
-        .review-form input, .review-form textarea {
+        .review-form input,
+        .review-form textarea,
+        .review-form select {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
@@ -584,7 +674,8 @@
                 right: -100%;
             }
 
-            .products-grid {
+            .products-grid,
+            .drop-grid {
                 grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
                 gap: 15px;
             }
@@ -603,7 +694,7 @@
     <header>
         <div class="header-top">
             <div class="container">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
                     <span id="headerText">🎉 স্বাগতম! বিশেষ ছাড় পান সব পণ্যে</span>
                     <button class="lang-toggle" onclick="toggleLanguage()" id="langBtn">English</button>
                 </div>
@@ -613,9 +704,12 @@
             <div class="logo" onclick="showAllProducts()">উৎসব</div>
             <div class="search-bar">
                 <input type="text" id="searchInput" placeholder="পণ্য খুঁজুন..." oninput="searchProducts()">
-                <button class="search-btn">🔍</button>
+                <button class="search-btn" aria-label="Search">🔍</button>
             </div>
             <div class="header-actions">
+                <button class="action-btn" onclick="scrollToDrop()">
+                    ✨ <span id="dropLinkText">EEAAO</span>
+                </button>
                 <button class="action-btn" onclick="toggleSidebar('wishlist')">
                     ❤️ <span id="wishlistText">উইশলিস্ট</span>
                     <span class="badge" id="wishlistCount">0</span>
@@ -638,7 +732,24 @@
     <!-- Main Content -->
     <main>
         <div class="container">
-            <h2 id="sectionTitle">সকল পণ্য</h2>
+            <section class="section-card" id="eeaaoSection">
+                <div class="section-header">
+                    <div>
+                        <h2 id="dropTitle">Everything Everywhere All at Once</h2>
+                        <p class="section-subtitle" id="dropSubtitle">সীমিত সংখ্যক পণ্যের হঠাৎ ড্রপ। প্রতিবারই নতুন চমক!</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        <span class="limited-badge" id="dropLimitedBadge">⚡ সীমিত স্টক</span>
+                        <button class="btn btn-outline" id="dropBtn" onclick="generateDrop()">Click here</button>
+                    </div>
+                </div>
+                <div class="drop-grid" id="dropGrid"></div>
+            </section>
+
+            <div class="section-header">
+                <h2 id="sectionTitle">সকল পণ্য</h2>
+                <p class="section-subtitle" id="sectionSubtitle">নির্বাচিত ক্যাটাগরি অনুযায়ী পণ্য দেখুন।</p>
+            </div>
             <div class="products-grid" id="productsGrid"></div>
         </div>
     </main>
@@ -646,7 +757,7 @@
     <!-- Product Detail Modal -->
     <div class="modal" id="productModal">
         <div class="modal-content">
-            <button class="modal-close" onclick="closeModal()">×</button>
+            <button class="modal-close" onclick="closeModal()">$\times$</button>
             <div id="productDetailContent"></div>
         </div>
     </div>
@@ -655,7 +766,7 @@
     <div class="sidebar" id="cartSidebar">
         <div class="sidebar-header">
             <h3 id="cartSidebarTitle">আপনার কার্ট</h3>
-            <button class="modal-close" onclick="toggleSidebar('cart')">×</button>
+            <button class="modal-close" onclick="toggleSidebar('cart')">$\times$</button>
         </div>
         <div class="sidebar-content" id="cartItems"></div>
         <div class="cart-total">
@@ -677,7 +788,7 @@
     <div class="sidebar" id="wishlistSidebar">
         <div class="sidebar-header">
             <h3 id="wishlistSidebarTitle">আপনার উইশলিস্ট</h3>
-            <button class="modal-close" onclick="toggleSidebar('wishlist')">×</button>
+            <button class="modal-close" onclick="toggleSidebar('wishlist')">$\times$</button>
         </div>
         <div class="sidebar-content" id="wishlistItems"></div>
     </div>
@@ -705,7 +816,7 @@
                 </div>
                 <div class="footer-section">
                     <h3 id="footerSocial">সামাজিক মিডিয়া</h3>
-                    <a href="https://business.facebook.com/latest/inbox/all/?nav_ref=manage_page_ap_plus_inbox_message_button&asset_id=741663552373046" target="_blank">📘 Facebook</a>
+                    <a href="https://business.facebook.com/latest/inbox/all/?nav_ref=manage_page_ap_plus_inbox_message_button&asset_id=741663552373046" target="_blank" rel="noreferrer">📘 Facebook</a>
                     <a href="#">📷 Instagram</a>
                     <a href="#">🐦 Twitter</a>
                 </div>
@@ -754,7 +865,17 @@
                 yourReview: 'আপনার রিভিউ',
                 rating: 'রেটিং',
                 remove: 'সরান',
-                moveToCart: 'কার্টে যোগ করুন'
+                moveToCart: 'কার্টে যোগ করুন',
+                dropTitle: 'Everything Everywhere All at Once',
+                dropSubtitle: 'সীমিত সংখ্যক পণ্যের হঠাৎ ড্রপ। প্রতিবারই নতুন চমক!',
+                dropLimitedBadge: '⚡ সীমিত স্টক',
+                dropBtn: 'Click here',
+                dropLinkText: 'EEAAO',
+                dropQty: 'স্টক',
+                dropSoldOut: 'স্টক শেষ',
+                dropEmpty: 'এখন কোনো ড্রপ নেই। আবার চেষ্টা করুন।',
+                dropAdd: 'দ্রুত যোগ করুন',
+                sectionSubtitle: 'নির্বাচিত ক্যাটাগরি অনুযায়ী পণ্য দেখুন।'
             },
             en: {
                 headerText: '🎉 Welcome! Get special discounts on all products',
@@ -788,7 +909,17 @@
                 yourReview: 'Your Review',
                 rating: 'Rating',
                 remove: 'Remove',
-                moveToCart: 'Add to Cart'
+                moveToCart: 'Add to Cart',
+                dropTitle: 'Everything Everywhere All at Once',
+                dropSubtitle: 'Limited drop of random products. Every click is a surprise!',
+                dropLimitedBadge: '⚡ Limited stock',
+                dropBtn: 'Click here',
+                dropLinkText: 'EEAAO',
+                dropQty: 'Stock',
+                dropSoldOut: 'Sold out',
+                dropEmpty: 'No drop right now. Try again!',
+                dropAdd: 'Quick add',
+                sectionSubtitle: 'Browse products by your selected category.'
             }
         };
 
@@ -840,11 +971,13 @@
         let searchQuery = '';
         let selectedProduct = null;
         let selectedQuantity = 1;
+        let dropItems = [];
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             renderCategories();
             renderProducts();
+            generateDrop();
             updateUI();
         });
 
@@ -852,7 +985,7 @@
         function renderCategories() {
             const nav = document.getElementById('categoryNav');
             nav.innerHTML = '';
-            
+
             Object.keys(categories).forEach(key => {
                 const btn = document.createElement('button');
                 btn.className = 'category-btn' + (key === currentCategory ? ' active' : '');
@@ -869,7 +1002,7 @@
             document.getElementById('searchInput').value = '';
             renderCategories();
             renderProducts();
-            
+
             const title = currentLang === 'bn' ? categories[category].nameBn : categories[category].nameEn;
             document.getElementById('sectionTitle').textContent = title;
         }
@@ -894,8 +1027,8 @@
 
             // Filter by search
             if (searchQuery) {
-                filtered = filtered.filter(p => 
-                    p.nameBn.toLowerCase().includes(searchQuery) || 
+                filtered = filtered.filter(p =>
+                    p.nameBn.toLowerCase().includes(searchQuery) ||
                     p.nameEn.toLowerCase().includes(searchQuery)
                 );
             }
@@ -913,7 +1046,7 @@
             }
 
             grid.innerHTML = '';
-            
+
             if (filtered.length === 0) {
                 grid.innerHTML = '<div class="loading">' + (currentLang === 'bn' ? 'কোন পণ্য পাওয়া যায়নি' : 'No products found') + '</div>';
                 return;
@@ -929,7 +1062,7 @@
         function createProductCard(product) {
             const discountedPrice = product.price - (product.price * product.discount / 100);
             const avgRating = calculateAverageRating(product.reviews);
-            
+
             const div = document.createElement('div');
             div.className = 'product-card';
             div.innerHTML = `
@@ -960,8 +1093,64 @@
                     </div>
                 </div>
             `;
-            
+
             return div;
+        }
+
+        // Drop logic
+        function generateDrop() {
+            const count = Math.floor(Math.random() * 3) + 1;
+            const shuffled = [...products].sort(() => 0.5 - Math.random());
+            dropItems = shuffled.slice(0, count).map(product => ({
+                productId: product.id,
+                quantity: Math.floor(Math.random() * 3) + 1
+            }));
+
+            renderDrop();
+        }
+
+        function renderDrop() {
+            const grid = document.getElementById('dropGrid');
+            grid.innerHTML = '';
+
+            if (dropItems.length === 0) {
+                grid.innerHTML = `<div class="loading">${translations[currentLang].dropEmpty}</div>`;
+                return;
+            }
+
+            dropItems.forEach(item => {
+                const product = products.find(p => p.id === item.productId);
+                const discountedPrice = product.price - (product.price * product.discount / 100);
+                const card = document.createElement('div');
+                card.className = 'drop-card';
+                card.innerHTML = `
+                    <img src="${product.images[0]}" alt="${product.nameBn}">
+                    <div class="product-name">${currentLang === 'bn' ? product.nameBn : product.nameEn}</div>
+                    <div class="drop-meta">
+                        <span class="discounted-price">৳${Math.round(discountedPrice)}</span>
+                        <span class="drop-qty">${translations[currentLang].dropQty}: ${item.quantity}</span>
+                    </div>
+                    <div class="drop-actions">
+                        <button class="btn btn-primary" ${item.quantity < 1 ? 'disabled' : ''} onclick="addDropToCart(${product.id})">
+                            ${item.quantity < 1 ? translations[currentLang].dropSoldOut : translations[currentLang].dropAdd}
+                        </button>
+                        <button class="btn btn-secondary" onclick="openProductDetail(${product.id})">${currentLang === 'bn' ? 'বিস্তারিত' : 'Details'}</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function addDropToCart(productId) {
+            const dropItem = dropItems.find(item => item.productId === productId);
+            if (!dropItem || dropItem.quantity < 1) {
+                alert(translations[currentLang].dropSoldOut);
+                return;
+            }
+
+            addToCart(productId, 1);
+            dropItem.quantity -= 1;
+            renderDrop();
         }
 
         // Calculate average rating
@@ -976,7 +1165,7 @@
             const full = Math.floor(rating);
             const half = rating % 1 >= 0.5 ? 1 : 0;
             const empty = 5 - full - half;
-            
+
             return '★'.repeat(full) + (half ? '☆' : '') + '☆'.repeat(empty);
         }
 
@@ -984,13 +1173,13 @@
         function openProductDetail(productId) {
             selectedProduct = products.find(p => p.id === productId);
             selectedQuantity = 1;
-            
+
             const modal = document.getElementById('productModal');
             const content = document.getElementById('productDetailContent');
-            
+
             const discountedPrice = selectedProduct.price - (selectedProduct.price * selectedProduct.discount / 100);
             const avgRating = calculateAverageRating(selectedProduct.reviews);
-            
+
             content.innerHTML = `
                 <div class="product-detail">
                     <div class="image-gallery">
@@ -1016,14 +1205,14 @@
                         </div>
                         <h3>${currentLang === 'bn' ? 'বিবরণ' : 'Description'}</h3>
                         <p>${currentLang === 'bn' ? selectedProduct.descBn : selectedProduct.descEn}</p>
-                        
+
                         <div class="quantity-selector">
                             <span>${currentLang === 'bn' ? 'পরিমাণ:' : 'Quantity:'}</span>
                             <button class="quantity-btn" onclick="changeQuantity(-1)">-</button>
                             <input type="number" class="quantity-input" id="quantityInput" value="1" min="1" onchange="updateQuantity(this.value)">
                             <button class="quantity-btn" onclick="changeQuantity(1)">+</button>
                         </div>
-                        
+
                         <div class="product-actions">
                             <button class="btn btn-secondary" onclick="addToCartFromDetail()">
                                 ${currentLang === 'bn' ? 'কার্টে যোগ করুন' : 'Add to Cart'}
@@ -1035,7 +1224,7 @@
                                 ${isInWishlist(selectedProduct.id) ? '❤️' : '🤍'}
                             </button>
                         </div>
-                        
+
                         <div class="reviews-section">
                             <h3>${currentLang === 'bn' ? 'রিভিউ' : 'Reviews'} (${selectedProduct.reviews.length})</h3>
                             ${selectedProduct.reviews.map(review => `
@@ -1047,7 +1236,7 @@
                                     <p>${review.comment}</p>
                                 </div>
                             `).join('')}
-                            
+
                             <div class="review-form">
                                 <h4>${currentLang === 'bn' ? 'রিভিউ লিখুন' : 'Write a Review'}</h4>
                                 <input type="text" placeholder="${currentLang === 'bn' ? 'আপনার নাম' : 'Your Name'}" id="reviewName">
@@ -1067,7 +1256,7 @@
                     </div>
                 </div>
             `;
-            
+
             modal.classList.add('active');
         }
 
@@ -1094,12 +1283,12 @@
             const name = document.getElementById('reviewName').value;
             const rating = parseInt(document.getElementById('reviewRating').value);
             const comment = document.getElementById('reviewComment').value;
-            
+
             if (!name || !comment) {
                 alert(currentLang === 'bn' ? 'দয়া করে সব ফিল্ড পূরণ করুন' : 'Please fill all fields');
                 return;
             }
-            
+
             selectedProduct.reviews.push({ name, rating, comment });
             alert(currentLang === 'bn' ? 'রিভিউ জমা হয়েছে!' : 'Review submitted!');
             openProductDetail(selectedProduct.id);
@@ -1114,13 +1303,13 @@
         function addToCart(productId, quantity = 1) {
             const product = products.find(p => p.id === productId);
             const existingItem = cart.find(item => item.product.id === productId);
-            
+
             if (existingItem) {
                 existingItem.quantity += quantity;
             } else {
                 cart.push({ product, quantity });
             }
-            
+
             updateUI();
             alert(currentLang === 'bn' ? 'কার্টে যোগ হয়েছে!' : 'Added to cart!');
         }
@@ -1145,13 +1334,13 @@
         function toggleWishlist(productId) {
             const product = products.find(p => p.id === productId);
             const index = wishlist.findIndex(item => item.id === productId);
-            
+
             if (index > -1) {
                 wishlist.splice(index, 1);
             } else {
                 wishlist.push(product);
             }
-            
+
             updateUI();
             renderProducts();
             if (selectedProduct && selectedProduct.id === productId) {
@@ -1182,7 +1371,7 @@
         function toggleSidebar(type) {
             const cartSidebar = document.getElementById('cartSidebar');
             const wishlistSidebar = document.getElementById('wishlistSidebar');
-            
+
             if (type === 'cart') {
                 const isActive = cartSidebar.classList.contains('active');
                 cartSidebar.classList.toggle('active');
@@ -1199,17 +1388,17 @@
         // Render cart sidebar
         function renderCartSidebar() {
             const container = document.getElementById('cartItems');
-            
+
             if (cart.length === 0) {
                 container.innerHTML = '<div class="loading">' + (currentLang === 'bn' ? 'কার্ট খালি' : 'Cart is empty') + '</div>';
                 return;
             }
-            
+
             container.innerHTML = cart.map(item => {
                 const discountedPrice = item.product.price - (item.product.price * item.product.discount / 100);
                 return `
                     <div class="cart-item">
-                        <img src="${item.product.images[0]}" class="cart-item-image">
+                        <img src="${item.product.images[0]}" class="cart-item-image" alt="${item.product.nameBn}">
                         <div class="cart-item-info">
                             <div class="product-name">${currentLang === 'bn' ? item.product.nameBn : item.product.nameEn}</div>
                             <div class="discounted-price">৳${Math.round(discountedPrice)}</div>
@@ -1225,7 +1414,7 @@
                     </div>
                 `;
             }).join('');
-            
+
             updateCartTotal();
         }
 
@@ -1235,7 +1424,7 @@
                 const discountedPrice = item.product.price - (item.product.price * item.product.discount / 100);
                 return sum + (discountedPrice * item.quantity);
             }, 0);
-            
+
             document.getElementById('subtotal').textContent = '৳' + Math.round(subtotal);
             document.getElementById('total').textContent = '৳' + Math.round(subtotal);
         }
@@ -1243,17 +1432,17 @@
         // Render wishlist sidebar
         function renderWishlistSidebar() {
             const container = document.getElementById('wishlistItems');
-            
+
             if (wishlist.length === 0) {
                 container.innerHTML = '<div class="loading">' + (currentLang === 'bn' ? 'উইশলিস্ট খালি' : 'Wishlist is empty') + '</div>';
                 return;
             }
-            
+
             container.innerHTML = wishlist.map(product => {
                 const discountedPrice = product.price - (product.price * product.discount / 100);
                 return `
                     <div class="cart-item">
-                        <img src="${product.images[0]}" class="cart-item-image" onclick="openProductDetail(${product.id}); toggleSidebar('wishlist');">
+                        <img src="${product.images[0]}" class="cart-item-image" alt="${product.nameBn}" onclick="openProductDetail(${product.id}); toggleSidebar('wishlist');">
                         <div class="cart-item-info">
                             <div class="product-name">${currentLang === 'bn' ? product.nameBn : product.nameEn}</div>
                             <div class="discounted-price">৳${Math.round(discountedPrice)}</div>
@@ -1275,32 +1464,32 @@
                 alert(currentLang === 'bn' ? 'কার্ট খালি!' : 'Cart is empty!');
                 return;
             }
-            
+
             // Prepare order details
-            let orderDetails = currentLang === 'bn' ? '🛒 নতুন অর্ডার\n\n' : '🛒 New Order\n\n';
-            
+            let orderDetails = currentLang === 'bn' ? '🛒 নতুন অর্ডার$\n$$\n$' : '🛒 New Order$\n$$\n$';
+
             cart.forEach((item, idx) => {
                 const discountedPrice = item.product.price - (item.product.price * item.product.discount / 100);
-                orderDetails += `${idx + 1}. ${currentLang === 'bn' ? item.product.nameBn : item.product.nameEn}\n`;
-                orderDetails += `   ${currentLang === 'bn' ? 'পরিমাণ' : 'Quantity'}: ${item.quantity}\n`;
-                orderDetails += `   ${currentLang === 'bn' ? 'মূল্য' : 'Price'}: ৳${Math.round(discountedPrice)} x ${item.quantity} = ৳${Math.round(discountedPrice * item.quantity)}\n\n`;
+                orderDetails += `${idx + 1}. ${currentLang === 'bn' ? item.product.nameBn : item.product.nameEn}$\n$`;
+                orderDetails += `   ${currentLang === 'bn' ? 'পরিমাণ' : 'Quantity'}: ${item.quantity}$\n$`;
+                orderDetails += `   ${currentLang === 'bn' ? 'মূল্য' : 'Price'}: ৳${Math.round(discountedPrice)} x ${item.quantity} = ৳${Math.round(discountedPrice * item.quantity)}$\n$$\n$`;
             });
-            
+
             const total = cart.reduce((sum, item) => {
                 const discountedPrice = item.product.price - (item.product.price * item.product.discount / 100);
                 return sum + (discountedPrice * item.quantity);
             }, 0);
-            
+
             orderDetails += `${currentLang === 'bn' ? 'মোট' : 'Total'}: ৳${Math.round(total)}`;
-            
+
             // Send to Facebook Messenger
             const fbPageId = '741663552373046';
             const encodedMessage = encodeURIComponent(orderDetails);
             const messengerUrl = `https://m.me/${fbPageId}?text=${encodedMessage}`;
-            
+
             // Open Facebook Messenger
             window.open(messengerUrl, '_blank');
-            
+
             // Optionally clear cart after order
             if (confirm(currentLang === 'bn' ? 'অর্ডার সম্পন্ন হয়েছে! কার্ট খালি করবেন?' : 'Order placed! Clear cart?')) {
                 cart = [];
@@ -1313,7 +1502,7 @@
         function updateUI() {
             document.getElementById('cartCount').textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
             document.getElementById('wishlistCount').textContent = wishlist.length;
-            
+
             if (document.getElementById('cartSidebar').classList.contains('active')) {
                 renderCartSidebar();
             }
@@ -1325,7 +1514,7 @@
         // Toggle language
         function toggleLanguage() {
             currentLang = currentLang === 'bn' ? 'en' : 'bn';
-            
+
             // Update all translatable elements
             Object.keys(translations[currentLang]).forEach(key => {
                 const element = document.getElementById(key);
@@ -1337,12 +1526,15 @@
                     }
                 }
             });
-            
+
+            document.getElementById('searchInput').placeholder = translations[currentLang].searchPlaceholder;
+
             // Re-render everything
             renderCategories();
             renderProducts();
+            renderDrop();
             updateUI();
-            
+
             // Update section title
             const title = currentLang === 'bn' ? categories[currentCategory].nameBn : categories[currentCategory].nameEn;
             document.getElementById('sectionTitle').textContent = title;
@@ -1352,6 +1544,10 @@
         function showAllProducts() {
             filterByCategory('all');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function scrollToDrop() {
+            document.getElementById('eeaaoSection').scrollIntoView({ behavior: 'smooth' });
         }
 
         // Close modal on outside click
