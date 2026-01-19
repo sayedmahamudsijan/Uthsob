@@ -740,7 +740,7 @@
                     </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                         <span class="limited-badge" id="dropLimitedBadge">⚡ সীমিত স্টক</span>
-                        <button class="btn btn-outline" id="dropBtn" onclick="generateDrop()">Click here</button>
+                        <button class="btn btn-outline" id="dropBtn" onclick="resetDropFilter()">Click here</button>
                     </div>
                 </div>
                 <div class="drop-grid" id="dropGrid"></div>
@@ -757,7 +757,7 @@
     <!-- Product Detail Modal -->
     <div class="modal" id="productModal">
         <div class="modal-content">
-            <button class="modal-close" onclick="closeModal()">$\times$</button>
+            <button class="modal-close" onclick="closeModal()">×</button>
             <div id="productDetailContent"></div>
         </div>
     </div>
@@ -766,7 +766,7 @@
     <div class="sidebar" id="cartSidebar">
         <div class="sidebar-header">
             <h3 id="cartSidebarTitle">আপনার কার্ট</h3>
-            <button class="modal-close" onclick="toggleSidebar('cart')">$\times$</button>
+            <button class="modal-close" onclick="toggleSidebar('cart')">×</button>
         </div>
         <div class="sidebar-content" id="cartItems"></div>
         <div class="cart-total">
@@ -788,7 +788,7 @@
     <div class="sidebar" id="wishlistSidebar">
         <div class="sidebar-header">
             <h3 id="wishlistSidebarTitle">আপনার উইশলিস্ট</h3>
-            <button class="modal-close" onclick="toggleSidebar('wishlist')">$\times$</button>
+            <button class="modal-close" onclick="toggleSidebar('wishlist')">×</button>
         </div>
         <div class="sidebar-content" id="wishlistItems"></div>
     </div>
@@ -866,7 +866,7 @@
                 rating: 'রেটিং',
                 remove: 'সরান',
                 moveToCart: 'কার্টে যোগ করুন',
-                dropTitle: 'Everything Everywhere All at Once',
+                dropTitle: 'সবখানে সবকিছু একসাথে',
                 dropSubtitle: 'সীমিত সংখ্যক পণ্যের হঠাৎ ড্রপ। প্রতিবারই নতুন চমক!',
                 dropLimitedBadge: '⚡ সীমিত স্টক',
                 dropBtn: 'Click here',
@@ -971,13 +971,19 @@
         let searchQuery = '';
         let selectedProduct = null;
         let selectedQuantity = 1;
-        let dropItems = [];
+        let dropItems = [
+            { productId: 2, quantity: 2, variantBn: 'কালো, স্ট্যান্ডার্ড', variantEn: 'Black, Standard' },
+            { productId: 8, quantity: 1, variantBn: 'সাদা, 42', variantEn: 'White, 42' },
+            { productId: 10, quantity: 2, variantBn: 'গ্রে, 5-পিস সেট', variantEn: 'Gray, 5-piece set' },
+            { productId: 13, quantity: 1, variantBn: 'হার্ডকভার, বাংলা', variantEn: 'Hardcover, Bengali' },
+            { productId: 16, quantity: 2, variantBn: 'নীল, 6mm', variantEn: 'Blue, 6mm' },
+            { productId: 4, quantity: 1, variantBn: 'রেড, 10W', variantEn: 'Red, 10W' }
+        ];
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             renderCategories();
             renderProducts();
-            generateDrop();
             updateUI();
         });
 
@@ -1013,6 +1019,7 @@
             currentCategory = 'all';
             renderCategories();
             renderProducts();
+            renderDrop();
         }
 
         // Render products
@@ -1098,27 +1105,23 @@
         }
 
         // Drop logic
-        function generateDrop() {
-            const count = Math.floor(Math.random() * 3) + 1;
-            const shuffled = [...products].sort(() => 0.5 - Math.random());
-            dropItems = shuffled.slice(0, count).map(product => ({
-                productId: product.id,
-                quantity: Math.floor(Math.random() * 3) + 1
-            }));
-
-            renderDrop();
-        }
-
         function renderDrop() {
             const grid = document.getElementById('dropGrid');
             grid.innerHTML = '';
 
-            if (dropItems.length === 0) {
+            const filteredDropItems = dropItems.filter(item => {
+                const product = products.find(p => p.id === item.productId);
+                if (!product) return false;
+                const searchTarget = `${product.nameBn} ${product.nameEn} ${item.variantBn} ${item.variantEn}`.toLowerCase();
+                return !searchQuery || searchTarget.includes(searchQuery);
+            });
+
+            if (filteredDropItems.length === 0) {
                 grid.innerHTML = `<div class="loading">${translations[currentLang].dropEmpty}</div>`;
                 return;
             }
 
-            dropItems.forEach(item => {
+            filteredDropItems.forEach(item => {
                 const product = products.find(p => p.id === item.productId);
                 const discountedPrice = product.price - (product.price * product.discount / 100);
                 const card = document.createElement('div');
@@ -1126,6 +1129,7 @@
                 card.innerHTML = `
                     <img src="${product.images[0]}" alt="${product.nameBn}">
                     <div class="product-name">${currentLang === 'bn' ? product.nameBn : product.nameEn}</div>
+                    <div class="section-subtitle">${currentLang === 'bn' ? item.variantBn : item.variantEn}</div>
                     <div class="drop-meta">
                         <span class="discounted-price">৳${Math.round(discountedPrice)}</span>
                         <span class="drop-qty">${translations[currentLang].dropQty}: ${item.quantity}</span>
@@ -1466,13 +1470,13 @@
             }
 
             // Prepare order details
-            let orderDetails = currentLang === 'bn' ? '🛒 নতুন অর্ডার$\n$$\n$' : '🛒 New Order$\n$$\n$';
+            let orderDetails = currentLang === 'bn' ? '🛒 নতুন অর্ডার\n\n' : '🛒 New Order\n\n';
 
             cart.forEach((item, idx) => {
                 const discountedPrice = item.product.price - (item.product.price * item.product.discount / 100);
-                orderDetails += `${idx + 1}. ${currentLang === 'bn' ? item.product.nameBn : item.product.nameEn}$\n$`;
-                orderDetails += `   ${currentLang === 'bn' ? 'পরিমাণ' : 'Quantity'}: ${item.quantity}$\n$`;
-                orderDetails += `   ${currentLang === 'bn' ? 'মূল্য' : 'Price'}: ৳${Math.round(discountedPrice)} x ${item.quantity} = ৳${Math.round(discountedPrice * item.quantity)}$\n$$\n$`;
+                orderDetails += `${idx + 1}. ${currentLang === 'bn' ? item.product.nameBn : item.product.nameEn}\n`;
+                orderDetails += `   ${currentLang === 'bn' ? 'পরিমাণ' : 'Quantity'}: ${item.quantity}\n`;
+                orderDetails += `   ${currentLang === 'bn' ? 'মূল্য' : 'Price'}: ৳${Math.round(discountedPrice)} x ${item.quantity} = ৳${Math.round(discountedPrice * item.quantity)}\n\n`;
             });
 
             const total = cart.reduce((sum, item) => {
@@ -1544,6 +1548,13 @@
         function showAllProducts() {
             filterByCategory('all');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetDropFilter() {
+            searchQuery = '';
+            document.getElementById('searchInput').value = '';
+            renderProducts();
+            renderDrop();
         }
 
         function scrollToDrop() {
